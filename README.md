@@ -23,7 +23,7 @@ List<Map<String, String>> history = ai.getHistory("chatUuid");
 boolean success = ai.logChat(
     "chatUuid",
     "How to make obsidian?", 
-    "You need water and lava source blocks..."
+    "You need water and lava ..."
 );
 ```
 
