@@ -1,0 +1,42 @@
+name: EasyAICore
+version: '0.1.5'
+main: TGBUG.easyAICore.EasyAICore
+api-version: '1.18'
+load: STARTUP
+authors: [ TGBUG ]
+website: infcraft.cn
+commands:
+  aichat:
+    description: 与 AI 对话
+    usage: /<command> <prompt>
+    aliases: ['ai']
+  easyaicore:
+    description: 插件主命令
+    usage: /<command> <subcommand>
+    aliases: ['eac']
+    children:
+      help:
+        description: 查看插件帮助
+        usage: /<command> help
+      history:
+        description: 查看聊天记录
+        usage: /<command> history [page|reset]
+      reload:
+        description: 重载插件
+        usage: /<command> reload
+permissions:
+  easyaicore.command.aichat:
+    description: 允许玩家使用 /aichat 命令
+    default: true
+  easyaicore.command.easyaicore:
+    description: 允许玩家使用 /easyaicore 命令
+    default: true
+  easyaicore.command.easyaicore.help:
+    description: 允许玩家使用 /easyaicore help 命令
+    default: true
+  easyaicore.command.easyaicore.history:
+    description: 允许玩家使用 /easyaicore history 命令
+    default: true
+  easyaicore.command.easyaicore.reload:
+    description: 允许玩家使用 /easyaicore reload 命令
+    default: op
