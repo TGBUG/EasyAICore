@@ -4,6 +4,7 @@ import org.bukkit.command.*;
 import org.bukkit.entity.Player;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.commons.lang.StringUtils.isNumeric;
 
@@ -13,6 +14,13 @@ public class Commands implements CommandExecutor {
     private final Integer maxTokens, historyPerPage;
     private final Double temperature;
     private final String waitingMsg, responsePrefix;
+    private final boolean registerAiCmd;
+    private final int rateLimitCount;
+    private final long rateLimitWindowMs;
+    private final String exceedLimitMsg;
+
+    // 用于存储每个 chatUuid 的调用时间戳队列
+    private final Map<String, Deque<Long>> usageMap = new ConcurrentHashMap<>();
 
     public Commands(AIService ai,
                     String version,
@@ -20,7 +28,12 @@ public class Commands implements CommandExecutor {
                     Double temperature,
                     Integer historyPerPage,
                     String waitingMsg,
-                    String responsePrefix) {
+                    String responsePrefix,
+                    boolean registerAiCmd,
+                    int rateLimitCount,
+                    int rateLimitIntervalMinutes,
+                    String exceedLimitMsg
+    ) {
         this.ai = ai;
         this.version = version;
         this.maxTokens = maxTokens;
@@ -28,6 +41,10 @@ public class Commands implements CommandExecutor {
         this.historyPerPage = historyPerPage;
         this.waitingMsg = waitingMsg;
         this.responsePrefix = responsePrefix;
+        this.registerAiCmd     = registerAiCmd;
+        this.rateLimitCount    = rateLimitCount;
+        this.rateLimitWindowMs = rateLimitIntervalMinutes * 60_000L;
+        this.exceedLimitMsg = exceedLimitMsg;
     }
 
     @Override
@@ -35,21 +52,41 @@ public class Commands implements CommandExecutor {
         String name = cmd.getName().toLowerCase();
         String uuid = (s instanceof Player) ? s.getName() : "console";
 
-        if (name.equals("aichat") || name.equals("ai")) {
+        if ((name.equals("aichat") || name.equals("ai")) && registerAiCmd) {
             if (!s.hasPermission("easyaicore.command.aichat")) {
-                send(s,"§c无权限");
+                send(s, "§c你没有权限执行此命令。");
                 return true;
             }
-            if (args.length==0) {
-                send(s,"用法: /ai <提示>");
+            if (args.length == 0) {
+                send(s, "用法: /ai <提示词>");
                 return true;
             }
+
+            // —— 限流检查 ——
+            long now = System.currentTimeMillis();
+            Deque<Long> deque = usageMap.computeIfAbsent(uuid, k -> new ArrayDeque<>());
+            // 清除过期记录
+            while (!deque.isEmpty() && now - deque.peekFirst() > rateLimitWindowMs) {
+                deque.pollFirst();
+            }
+            if (deque.size() >= rateLimitCount) {
+                long nextAllowed = deque.peekFirst() + rateLimitWindowMs;
+                long waitSec = Math.max(0, (nextAllowed - now) / 1000);
+                send(s, exceedLimitMsg.replace("%wait%", String.valueOf(waitSec)));
+                return true;
+            }
+            // 记录本次调用
+            deque.addLast(now);
+
+            // —— 正常调用 AI ——
             String prompt = String.join(" ", args);
             send(s, waitingMsg);
-
             ai.chat(uuid, prompt, maxTokens, temperature)
-                    .thenAccept(ans -> send(s, responsePrefix + ans))
-                    .exceptionally(ex -> { send(s,"§cAI 错误: "+ex.getMessage()); return null; });
+                    .thenAccept(resp -> send(s, responsePrefix + resp))
+                    .exceptionally(ex -> {
+                        send(s, "§cAI 请求失败: " + ex.getMessage());
+                        return null;
+                    });
             return true;
         }
 

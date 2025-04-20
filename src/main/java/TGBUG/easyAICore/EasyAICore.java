@@ -42,6 +42,10 @@ public class EasyAICore extends JavaPlugin {
         saveDefaultConfig();
         reloadConfig();
 
+        boolean registerAiCmd = getConfig().getBoolean("register-ai-command", true);
+        int rateLimitCount = getConfig().getInt("rate-limit-count", 5);
+        int rateLimitInterval = getConfig().getInt("rate-limit-interval", 1);
+
         // 2. 卸载旧的 AIService，再用新配置创建并注册
         if (aiService != null) {
             Bukkit.getServicesManager().unregister(AIService.class, aiService);
@@ -51,7 +55,8 @@ public class EasyAICore extends JavaPlugin {
                 getConfig().getString("api-key"),
                 getConfig().getString("api-endpoint"),
                 getConfig().getString("model"),
-                getConfig().getInt("timeout-seconds")
+                getConfig().getInt("timeout-seconds"),
+                getConfig().getString("system-message")
         );
         Bukkit.getServicesManager()
                 .register(AIService.class, aiService, this, ServicePriority.Normal);
@@ -64,12 +69,18 @@ public class EasyAICore extends JavaPlugin {
                 getConfig().getDouble("temperature"),
                 getConfig().getInt("history-per-page"),
                 getConfig().getString("waiting-message"),
-                getConfig().getString("AI-response-prefix")
+                getConfig().getString("AI-response-prefix"),
+                registerAiCmd,
+                rateLimitCount,
+                rateLimitInterval,
+                getConfig().getString("exceed-limit-message")
         );
         TabCompleter tabCompleter = new TabComplete();
 
         // 4. 重新注册命令
-        getCommand("aichat").setExecutor(commandExecutor);
+        if (registerAiCmd) {
+            getCommand("aichat").setExecutor(commandExecutor);
+        }
         getCommand("easyaicore").setExecutor(commandExecutor);
         getCommand("easyaicore").setTabCompleter(tabCompleter);
 

@@ -15,12 +15,14 @@ public class OpenAIService implements AIService {
     private final Duration timeout;
     private final ChatHistoryDatabase db;
     private final Gson gson = new Gson();
+    private final String systemMessage;
 
     public OpenAIService(JavaPlugin plugin,
                          String apiKey,
                          String apiEndpoint,
                          String model,
-                         int timeoutSeconds
+                         int timeoutSeconds,
+                         String systemMessage
                         ) {
         this.apiKey      = apiKey;
         this.apiEndpoint = apiEndpoint;
@@ -30,6 +32,7 @@ public class OpenAIService implements AIService {
                 .connectTimeout(timeout)
                 .build();
         this.db = new ChatHistoryDatabase(plugin);
+        this.systemMessage = systemMessage;
     }
 
     @Override
@@ -40,7 +43,7 @@ public class OpenAIService implements AIService {
         // 1. 拼装消息列表
         List<Map<String,String>> history = db.getHistory(chatUuid);
         List<Map<String,String>> messages = new ArrayList<>();
-        messages.add(Map.of("role","system","content","You are a helpful assistant."));
+        messages.add(Map.of("role","system","content",systemMessage));
         messages.addAll(history);
         messages.add(Map.of("role","user","content",prompt));
 
