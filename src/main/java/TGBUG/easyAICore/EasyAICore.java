@@ -1,17 +1,16 @@
 package TGBUG.easyAICore;
 
 import lombok.Getter;
-import org.bukkit.Bukkit;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.plugin.ServicePriority;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class EasyAICore extends JavaPlugin {
-    // 单例引用，方便在 Commands 中调用
+    // 单例引用
     @Getter private static EasyAICore instance;
 
-    private OpenAIService aiService;
+    @Getter private AIService aiService;
+
     private ChatHistoryDatabase dbManager;
 
     @Override
@@ -25,8 +24,6 @@ public class EasyAICore extends JavaPlugin {
 
     @Override
     public void onDisable() {
-        // 卸载 AI 服务
-        Bukkit.getServicesManager().unregister(AIService.class, aiService);
         // 关闭数据库
         if (dbManager != null) {
             dbManager.close();
@@ -46,10 +43,6 @@ public class EasyAICore extends JavaPlugin {
         int rateLimitCount = getConfig().getInt("rate-limit-count", 5);
         int rateLimitInterval = getConfig().getInt("rate-limit-interval", 1);
 
-        // 2. 卸载旧的 AIService，再用新配置创建并注册
-        if (aiService != null) {
-            Bukkit.getServicesManager().unregister(AIService.class, aiService);
-        }
         aiService = new OpenAIService(
                 this,
                 getConfig().getString("api-key"),
@@ -58,10 +51,8 @@ public class EasyAICore extends JavaPlugin {
                 getConfig().getInt("timeout-seconds"),
                 getConfig().getString("system-message")
         );
-        Bukkit.getServicesManager()
-                .register(AIService.class, aiService, this, ServicePriority.Normal);
 
-        // 3. 构建新的 Commands 执行器（拿到最新 config 参数）
+        // 2. 构建新的 Commands 执行器（拿到最新 config 参数）
         CommandExecutor commandExecutor = new Commands(
                 aiService,
                 getDescription().getVersion(),
@@ -77,7 +68,7 @@ public class EasyAICore extends JavaPlugin {
         );
         TabCompleter tabCompleter = new TabComplete();
 
-        // 4. 重新注册命令
+        // 3. 重新注册命令
         if (registerAiCmd) {
             getCommand("aichat").setExecutor(commandExecutor);
         }
